@@ -284,3 +284,72 @@ export default App;
 //event.target.innerText
 //event.target.textContent
 //workflowComponents[0].querySelector('.doc-WorkflowComponent-content');
+
+
+//Working logic for Simple Templte
+getDataMap = (note) => {
+  let parser = new DOMParser();
+  let doc = parser.parseFromString(note.formattedHtmlContent, 'text/html');
+  const htmlContent = doc.body;
+ 
+  debugger;
+  const problemsArray = htmlContent.getElementsByClassName('ddemrcontentitem ddremovable');
+  const problems = [];
+
+  if (problemsArray && problemsArray.length) {
+    problemsArray.forEach((problem) => {
+      
+      const probObject = {
+        problem: problem.innerText,
+        freeText: []
+      };
+      
+      const freeTexts = problem.getElementsByClassName('ddfreetext ddremovable');
+      if (freeTexts.length) {
+        freeTexts.forEach(freeText => {
+          debugger;
+          if (freeText.innerText.trim()) {
+            probObject.freeText.push(freeText.innerText);
+          } else {
+            probObject.freeText.push('NO_DATA');
+          }
+          //This IF condition dint work but should be considered if we find any other placeholders for empty free text
+          // if (freeText.innerText === '&nbsp;' || freeText.innerText === ' ' || freeText.innerText === '') {
+          //   probObject.freeText.push('NO_DATA');
+          // } else {
+          //   probObject.freeText.push(freeText.innerText);
+          // }
+          
+        });
+      }
+      
+      problems.push(probObject);
+    });
+    problems.forEach(prob => {
+      //prob.problem = prob.problem.replace(`${prob.freeText}`, '');
+      note.data.set(prob.problem.replace(prob.freeText, ''), prob.freeText);
+    });
+    //=== ' ' ? 'NO_DATA'
+    console.log(problems);
+
+    //Find the generic free text
+    debugger;
+    const genricFreeText =  htmlContent.getElementsByClassName('doc-WorkflowComponent-content doc-DynamicDocument-content')[0]
+    .getElementsByClassName('ddfreetext ddremovable');
+    const genricFreeTextIndex =  genricFreeText.length - 1;
+
+    if (genricFreeText[genricFreeTextIndex].innerText.trim()) {
+      note.data.set('Generic Free Text', genricFreeText[genricFreeTextIndex].innerText);
+    } else {
+      note.data.set('Generic Free Text', 'NO_DATA');
+    }
+
+    //This IF condition dint work but should be considered if we find any other placeholders for empty free text
+    // if (genricFreeText[genricFreeTextIndex].innerText === '&nbsp;' || genricFreeText[genricFreeTextIndex].innerText === ' '
+    //     || genricFreeText[genricFreeTextIndex].innerText === '') {
+    //       note.data.set('Generic Free Text', 'NO_DATA');
+    // } else {
+    //   note.data.set('Generic Free Text', genricFreeText[genricFreeTextIndex].innerText)
+    // }
+  }
+}

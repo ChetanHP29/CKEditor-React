@@ -8,7 +8,8 @@ class App extends Component {
   state = {
     data: "\u003cdiv xmlns:dd=\"DynamicDocumentation\" class=\"ddgrouper ddremovable\" dd:btnfloatingstyle=\"top-right\" id=\"_77609141-8989-47c9-93b6-b048eeb5db42\"\u003e\n\u003cspan style=\"text-decoration: underline;\"\u003eOngoing\u003c/span\u003e\u003cdiv class=\"ddemrcontentitem\" style=\"margin-left: 1em; padding-left: 1em; text-indent: -1em;\" dd:entityid=\"\" dd:contenttype=\"PROBLEMS\" id=\"_f0265850-7afb-4227-bcf7-1183cd273e2e\"\u003eNo chronic problems\u003c/div\u003e\n\u003c/div\u003e\n\u003cdiv xmlns:dd=\"DynamicDocumentation\" class=\"ddgrouper ddremovable\" dd:btnfloatingstyle=\"top-right\" id=\"_b5db751f-7ab0-498f-be01-707c2eb7de2d\"\u003e\n\u003cspan style=\"text-decoration: underline;\"\u003eHistorical\u003c/span\u003e\u003cdiv style=\"margin-left: 1em; padding-left: 1em; text-indent: -1em;\"\u003eNo qualifying data\u003c/div\u003e\n\u003c/div\u003e\n",
     showEditor: false,
-    isDirty: false
+    isDirty: false,
+    editorInstance: null
   };
 
   ediorDisplayHanlder = () => {
@@ -47,38 +48,57 @@ class App extends Component {
     const htmlContent = doc.body;
    
     debugger;
-    const problemsArray = htmlContent.getElementsByClassName('ddemrcontentitem ddremovable');
-    const problems = [];
+    const emrContentElements = htmlContent.getElementsByClassName('ddemrcontentitem ddremovable');
+    const emrDatas = [];
 
-    if (problemsArray.length) {
-      problemsArray.forEach((problem) => {
-        
-        const probObject = {
-          problem: problem.innerText,
-          freeText: []
-        };
-        
-        const freeTexts = problem.getElementsByClassName('ddfreetext ddremovable');
-        if (freeTexts.length) {
-          freeTexts.forEach(freeText => {
-            debugger;
-            if (freeText.innerText === '&nbsp;' || freeText.innerText === ' ' || freeText.innerText === '') {
-              probObject.freeText.push('NO_DATA');
-            } else {
-              probObject.freeText.push(freeText.innerText);
-            }
-            
-          });
-        }
-        
-        problems.push(probObject);
+    if (emrContentElements && emrContentElements.length) {
+      const emrContents = [];
+      emrContentElements.forEach((emrContent) => {
+        // SHould consider any other value for dd:ontenttype apart from DIAGNOSES, if any
+        if(emrContent.getAttribute('xmlns:dd') === 'DynamicDocumentation' && emrContent.getAttribute('dd:contenttype')=== 'DIAGNOSES') { 
+          emrContents.push(emrContent)
+        }   
       });
-      problems.forEach(prob => {
+
+      debugger;
+      if (emrContents && emrContents.length) {
+        emrContents.forEach(emrContent => {
+          const emrObject = { };
+          let freeTextBox = '';
+
+          if (emrContent.childNodes && emrContent.childNodes.length && emrContent.childNodes[0].wholeText) {
+            emrObject.emrItem = emrContent.childNodes[0].wholeText;
+          }
+
+          if (emrContent.length) {
+            emrContent.forEach(element => {
+              if (element.getAttribute('class') === 'ddfreetext ddremovable') {
+                freeTextBox = element;
+              }
+            })
+          } else if (emrContent.getElementsByClassName('ddfreetext ddremovable').length) {
+            freeTextBox = emrContent.getElementsByClassName('ddfreetext ddremovable')[0];
+          } else {
+            emrObject.freeText = 'NO_FREE_TEXT'
+          }
+          if (freeTextBox) {
+            if (freeTextBox.innerText.trim()) {
+              emrObject.freeText = freeTextBox.innerText;
+            } else {
+              emrObject.freeText = 'NO_DATA';
+            }
+          }
+          
+          emrDatas.push(emrObject);  
+        });
+      }  
+
+      emrDatas.forEach(emrData => {
         //prob.problem = prob.problem.replace(`${prob.freeText}`, '');
-        note.data.set(prob.problem.replace(prob.freeText, ''), prob.freeText);
+        note.data.set(emrData.emrItem, emrData.freeText);
       });
       //=== ' ' ? 'NO_DATA'
-      console.log(problems);
+      console.log(emrDatas);
     }
 
     //Find the generic free text
@@ -86,14 +106,21 @@ class App extends Component {
     const genricFreeText =  htmlContent.getElementsByClassName('doc-WorkflowComponent-content doc-DynamicDocument-content')[0]
     .getElementsByClassName('ddfreetext ddremovable');
     const genricFreeTextIndex =  genricFreeText.length - 1;
-    if (genricFreeText[genricFreeTextIndex].innerText === '&nbsp;' || genricFreeText[genricFreeTextIndex].innerText === ' '
-        || genricFreeText[genricFreeTextIndex].innerText === '') {
-          note.data.set('Generic Free Text', 'NO_DATA');
+
+    if (genricFreeText[genricFreeTextIndex].innerText.trim()) {
+      note.data.set('Generic Free Text', genricFreeText[genricFreeTextIndex].innerText);
     } else {
-      note.data.set('Generic Free Text', genricFreeText[genricFreeTextIndex].innerText)
+      note.data.set('Generic Free Text', 'NO_DATA');
     }
 
-    debugger;
+    //This IF condition dint work but should be considered if we find any other placeholders for empty free text
+    // if (genricFreeText[genricFreeTextIndex].innerText === '&nbsp;' || genricFreeText[genricFreeTextIndex].innerText === ' '
+    //     || genricFreeText[genricFreeTextIndex].innerText === '') {
+    //       note.data.set('Generic Free Text', 'NO_DATA');
+    // } else {
+    //   note.data.set('Generic Free Text', genricFreeText[genricFreeTextIndex].innerText)
+    // }
+
     console.log(htmlContent);
     console.log(note.data);
   };  
@@ -102,25 +129,62 @@ class App extends Component {
   compareHtml = () => {
 
     let currentNote = {
-      htmlContent: `<div class="doc-WorkflowComponent-content doc-DynamicDocument-content"><div class="ddemrcontent" id="_98a480cf-d86e-408a-8abe-2c8ca9834fb4" dd:contenttype="DXORDERS" dd:extractkey="ad437262-ff0e-49b4-9801-b3d2c62d1ade" dd:referenceuuid="28ADF401-6012-454F-B8DF-CD5503253E54"><div xmlns:dd="DynamicDocumentation" class="ddemrcontentitem ddremovable" style="clear:both" dd:entityid="2106964623" dd:contenttype="DIAGNOSES" id="_6fbff4e6-b6b2-46cb-a014-654f8847215b">Acute gastritis↵   <div style="margin-left:8px" class="ddfreetext ddremovable" dd:btnfloatingstyle="top-right" contenteditable="true" id="_c0ac97d0-4b2b-45fc-8005-1f85eb7480e1" contentEditable="true">Test text 111</div>↵   <div style="clear:both"></div>↵</div>↵<div xmlns:dd="DynamicDocumentation" class="ddemrcontentitem ddremovable" style="clear:both" dd:entityid="2106964481" dd:contenttype="DIAGNOSES" id="_0b48c152-1369-44ee-9c13-9a27c7390515">Pain in throat and chest↵   <div style="margin-left:8px" class="ddfreetext ddremovable" dd:btnfloatingstyle="top-right" contenteditable="true" id="_f2a15188-5c5c-4042-9333-af6ccaa26c5f" contentEditable="true">&#xA0;test1234&#xA0;</div>↵   <div style="clear:both"></div>↵</div>↵</div>↵↵↵↵<div id="abf85d7f-7f49-f060-9e37-5e9d06ec5d9c" class="ddfreetext ddremovable" dd:btnfloatingstyle="top-right" contenteditable="true"></div>&nbsp;</div>`,
+      htmlContent: `<div class="doc-WorkflowComponent-content doc-DynamicDocument-content">
+      <div class="ddemrcontent" id="_bfb53c88-05af-4a83-940d-ee85b270f608" dd:contenttype="DXORDERS" dd:referenceuuid="28ADF401-6012-454F-B8DF-CD5503253E54">
+          <div xmlns:dd="DynamicDocumentation" class="ddemrcontentitem ddremovable" style="clear:both" dd:entityid="28495795" dd:contenttype="DIAGNOSES">3.&#160;Eyelid retraction (Axis I diagnosis)
+              <div style="margin-left:8px" class="ddfreetext ddremovable" dd:btnfloatingstyle="top-right">Feverish cold </div>
+              <div>
+                  <div style="display:table-cell;*float:left;padding-left:8px;padding-right:10px">Ordered: </div>
+                  <div style="display:table-cell;*float:left">
+                      <div class="ddemrcontentitem ddremovable" dd:entityid="2171389921" dd:contenttype="MEDICATIONS">diphtheria/pertussis,acel/tetanus/polio, 10 mg =, Buccal, 2-4x/Day, Start Date/Time: 09/11/18 8:00:00 CDT</div>
+                  </div>
+              </div>
+              <div style="clear:both"><span> &#160;</span></div>
+          </div>
+          <div xmlns:dd="DynamicDocumentation" class="ddemrcontentitem ddremovable" style="clear:both" dd:entityid="28495821" dd:contenttype="DIAGNOSES">4.&#160;Pain and other conditions associated with female genital organs and menstrual cycle
+              <div style="margin-left:8px" class="ddfreetext ddremovable" dd:btnfloatingstyle="top-right">Fracture in right hand</div>
+              <div>
+                  <div style="display:table-cell;*float:left;padding-left:8px;padding-right:10px">Ordered: </div>
+                  <div style="display:table-cell;*float:left">
+                      <div class="ddemrcontentitem ddremovable" dd:entityid="2171389947" dd:contenttype="MEDICATIONS">acetaminophen, 890 mg, Aerosol, Oral, q4-6hr, Start Date/Time: 09/12/18, Future Order, 09/12/18 1:00:00 CDT</div>
+                  </div>
+              </div>
+              <div style="clear:both"><span> &#160;</span></div>
+          </div>
+          <div xmlns:dd="DynamicDocumentation" class="ddemrcontentitem ddremovable" style="clear:both" dd:entityid="0">Orders: 
+              <div style="padding-left:8px">
+                  <div class="ddemrcontentitem ddremovable" dd:entityid="2171389937" dd:contenttype="MEDICATIONS">captopril, 12 mg, Cap, Buccal, q4-6hr, Start Date/Time: 09/12/18, Future Order, 09/12/18 1:00:00 CDT</div>
+                  <div class="ddemrcontentitem ddremovable" dd:entityid="2171389913" dd:contenttype="MEDICATIONS">diflunisal, 250 mg, Oral, 12x/Day, PRN pain, Start Date/Time: 09/11/18 7:47:00 CDT, 09/11/18 7:47:00 CDT</div>
+                  <div class="ddemrcontentitem ddremovable" dd:entityid="2171389929" dd:contenttype="MEDICATIONS">lisinopril, 20 mg, Oral, 1-2x/Day, Start Date/Time: 09/12/18 0:00:00 CDT, 09/12/18 0:00:00 CDT</div>
+                  <div class="ddemrcontentitem ddremovable" dd:entityid="2171389905" dd:contenttype="MEDICATIONS">methadone, 40 mg, Oral, 16x/Day, PRN pain, Start Date/Time: 09/11/18 7:46:00 CDT, 09/11/18 7:46:00 CDT</div>
+              </div>
+          </div>
+      </div>
+      <div id="abf85d7f-7f49-f060-9e37-5e9d06ec5d9c" class="ddfreetext ddremovable" dd:btnfloatingstyle="top-right" contenteditable="true">&nbsp;</div>
+  </div>`,
       formattedHtmlContent: '',
       data: new Map()
     };
     let futureNote = {
       htmlContent: `<div class="doc-WorkflowComponent-content doc-DynamicDocument-content">
-    <div class="ddemrcontent" id="_bfb53c88-05af-4a83-940d-ee85b270f608" dd:contenttype="DXORDERS" dd:referenceuuid="28ADF401-6012-454F-B8DF-CD5503253E54">
-      <div xmlns:dd="DynamicDocumentation" class="ddemrcontentitem ddremovable" style="clear:both" dd:entityid="2105554153" dd:contenttype="DIAGNOSES" id="_2b94919e-d5e3-48b8-a5a1-2e4515013295">
-              Chronic fever
-              <div style="margin-left:8px" class="ddfreetext ddremovable" dd:btnfloatingstyle="top-right" id="_d4d41df6-752f-42c3-86df-93ab6f42486a" contenteditable="true" data-nusa-concept-name="assessment plan">&nbsp;T1 T2</div>
-        <div style="clear:both"></div>
+      <div class="ddemrcontent" id="_bfb53c88-05af-4a83-940d-ee85b270f608" dd:contenttype="DXORDERS" dd:referenceuuid="28ADF401-6012-454F-B8DF-CD5503253E54">
+          <div xmlns:dd="DynamicDocumentation" class="ddemrcontentitem ddremovable" style="clear:both" dd:entityid="28495795" dd:contenttype="DIAGNOSES">3.&#160;Eyelid retraction (Axis I diagnosis)
+              <div style="clear:both"><span> &#160;</span></div>
+          </div>
+          <div xmlns:dd="DynamicDocumentation" class="ddemrcontentitem ddremovable" style="clear:both" dd:entityid="28495821" dd:contenttype="DIAGNOSES">4.&#160;Pain and other conditions associated with female genital organs and menstrual cycle
+              <div style="clear:both"><span> &#160;</span></div>
+          </div>
+          <div xmlns:dd="DynamicDocumentation" class="ddemrcontentitem ddremovable" style="clear:both" dd:entityid="0">Orders: 
+              <div style="padding-left:8px">
+                  <div class="ddemrcontentitem ddremovable" dd:entityid="2171389937" dd:contenttype="MEDICATIONS">diphtheria/pertussis,acel/tetanus/polio, 10 mg =, Buccal, 2-4x/Day, Start Date/Time: 09/11/18 8:00:00 CDT</div>
+                  <div class="ddemrcontentitem ddremovable" dd:entityid="2171389913" dd:contenttype="MEDICATIONS">acetaminophen, 890 mg, Aerosol, Oral, q4-6hr, Start Date/Time: 09/12/18, Future Order, 09/12/18 1:00:00 CDT</div>
+              </div>
+          </div>
       </div>
-      <div xmlns:dd="DynamicDocumentation" class="ddemrcontentitem ddremovable" style="clear:both" dd:entityid="2080117899" dd:contenttype="DIAGNOSES" id="_3c3e89dc-640a-465d-be57-894940d99f87">
-              Gas (Complaint of)
-          <div style="margin-left:8px" class="ddfreetext ddremovable" dd:btnfloatingstyle="top-right" id="_8bef9089-6ddc-4f41-b4e9-78368baa19eb" contenteditable="true">&nbsp;Test text in the editor. Dirty Check.? HPC</div>
-        <div style="clear:both"></div>
+      <div id="abf85d7f-7f49-f060-9e37-5e9d06ec5d9c" class="ddfreetext ddremovable" dd:btnfloatingstyle="top-right" contenteditable="true">Feverish cold 
+          Fracture in right hand
       </div>
-    </div>
-      <div id="abf85d7f-7f49-f060-9e37-5e9d06ec5d9c" class="ddfreetext ddremovable" dd:btnfloatingstyle="top-right" contenteditable="true">&nbsp;</div>
+      <div id="4b07f8eb-05f8-ecce-6aa5-259977a3fb62" class="ddfreetext ddremovable" dd:btnfloatingstyle="top-right" contenteditable="true">Feverish cold <br><br>Fracture in right hand<br></div>
   </div>`,
     formattedHtmlContent: '',
       data: new Map()
@@ -136,10 +200,34 @@ class App extends Component {
 
     this.getDataMap(currentNote);
     this.getDataMap(futureNote);
-    
+
     debugger;
     console.log(currentNote);
     console.log(futureNote);
+
+    let stopSwitch = false;
+    let forwardData = false;
+    let probNotFound = [];
+
+    for (let prob of currentNote.data.keys()) {
+
+      if (futureNote.data.has(prob)) {
+        if ( currentNote.data.get(prob) === 'NO_DATA' || currentNote.data.get(prob) === 'NO_FREE_TEXT' ) {
+          forwardData = false;
+        } else {
+          forwardData = futureNote.data.get('Generic Free Text').includes(currentNote.data.get(prob)) ? false : true;
+        }
+      }
+      if (futureNote.data.has(prob) === false) {
+        probNotFound.push(prob);
+        if ( currentNote.data.get(prob) === 'NO_DATA' || currentNote.data.get(prob) === 'NO_FREE_TEXT' ) {
+          stopSwitch = false;
+        } else {
+          stopSwitch = futureNote.data.get('Generic Free Text').includes(currentNote.data.get(prob)) ? false : true;
+        }
+      } 
+    }
+    
   };
 
   render() {
@@ -151,10 +239,17 @@ class App extends Component {
             type="inline"
             data={this.state.data}
             onChange={(event) => {this.changeHandler(event)}}
+            onInit={ editor => {
+              // You can store the "editor" and use when it is needed.
+              this.setState({
+                editorInstance: editor
+              });
+              console.log( 'Editor is ready to use!', editor );
+          } }
           />
         </div>;
     }
-
+    debugger;
     return (
       <div className="App">
         <h2>Using CKEditor 4 in React</h2>
