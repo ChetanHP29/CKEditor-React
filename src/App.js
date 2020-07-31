@@ -44,71 +44,77 @@ class App extends Component {
 
   getDataMap = (note) => {
     let parser = new DOMParser();
-    let doc = parser.parseFromString(note.formattedHtmlContent, 'text/html');
+    let doc = parser.parseFromString(note.htmlContent, 'text/html');
     const htmlContent = doc.body;
-   
+    // debugger;
+    // htmlContent.getElementsByClassName('ddfreetext ddremovable')[2].innerHTML = "Feverless cold <br><br>Fracture in left hand<br>"
     debugger;
-    const emrContentElements = htmlContent.getElementsByClassName('ddemrcontentitem ddremovable');
+    // Get all the elements with class - 'demrcontentitem ddremovable'
+    const emrContentItems = htmlContent.getElementsByClassName('ddemrcontentitem ddremovable');
     const emrDatas = [];
 
-    if (emrContentElements && emrContentElements.length) {
+    if (emrContentItems && emrContentItems.length) {
       const emrContents = [];
-      emrContentElements.forEach((emrContent) => {
-        // SHould consider any other value for dd:ontenttype apart from DIAGNOSES, if any
-        if(emrContent.getAttribute('xmlns:dd') === 'DynamicDocumentation' && emrContent.getAttribute('dd:contenttype')=== 'DIAGNOSES') { 
-          emrContents.push(emrContent)
+      // Filter the elements that or not emr, example Orders
+      emrContentItems.forEach((emrContentItem) => {
+        // SHould consider emrContentItem.getAttribute('dd:contenttype') === 'DIAGNOSES' instead of emrContentItem.hasAttribute('dd:contenttype')
+        // if any other tags apart from emrItems has this attribute and consider hekcing for other emrtypes as weel same as DIAGNOSES        // 
+        if(emrContentItem.getAttribute('xmlns:dd') === 'DynamicDocumentation' && emrContentItem.hasAttribute('dd:contenttype')) { 
+          emrContents.push(emrContentItem)
         }   
       });
-
       debugger;
       if (emrContents && emrContents.length) {
         emrContents.forEach(emrContent => {
           const emrObject = { };
-          let freeTextBox = '';
+          let freeTextElement = '';
 
+          // Get the emr data
           if (emrContent.childNodes && emrContent.childNodes.length && emrContent.childNodes[0].wholeText) {
             emrObject.emrItem = emrContent.childNodes[0].wholeText;
           }
-
+          debugger;
+          // Find the free text box under emr
           if (emrContent.length) {
             emrContent.forEach(element => {
               if (element.getAttribute('class') === 'ddfreetext ddremovable') {
-                freeTextBox = element;
+                freeTextElement = element;
               }
             })
           } else if (emrContent.getElementsByClassName('ddfreetext ddremovable').length) {
-            freeTextBox = emrContent.getElementsByClassName('ddfreetext ddremovable')[0];
+            freeTextElement = emrContent.getElementsByClassName('ddfreetext ddremovable')[0];
           } else {
             emrObject.freeText = 'NO_FREE_TEXT'
           }
-          if (freeTextBox) {
-            if (freeTextBox.innerText.trim()) {
-              emrObject.freeText = freeTextBox.innerText;
+          if (freeTextElement) {
+            if (freeTextElement.innerText.trim()) {
+              emrObject.freeText = freeTextElement.innerHTML;
             } else {
               emrObject.freeText = 'NO_DATA';
             }
           }
           
-          emrDatas.push(emrObject);  
+          note.data.set(emrObject.emrItem, emrObject.freeText);
+          //emrDatas.push(emrObject);  
         });
       }  
 
-      emrDatas.forEach(emrData => {
-        //prob.problem = prob.problem.replace(`${prob.freeText}`, '');
-        note.data.set(emrData.emrItem, emrData.freeText);
-      });
+      // emrDatas.forEach(emrData => {
+      //   //prob.problem = prob.problem.replace(`${prob.freeText}`, '');
+      //   note.data.set(emrData.emrItem, emrData.freeText);
+      // });
       //=== ' ' ? 'NO_DATA'
       console.log(emrDatas);
     }
 
-    //Find the generic free text
     debugger;
-    const genricFreeText =  htmlContent.getElementsByClassName('doc-WorkflowComponent-content doc-DynamicDocument-content')[0]
-    .getElementsByClassName('ddfreetext ddremovable');
+    //Find the generic free text
+    const genricFreeText = htmlContent.getElementsByClassName('doc-WorkflowComponent-content doc-DynamicDocument-content')[0]
+      .getElementsByClassName('ddfreetext ddremovable');
     const genricFreeTextIndex =  genricFreeText.length - 1;
 
     if (genricFreeText[genricFreeTextIndex].innerText.trim()) {
-      note.data.set('Generic Free Text', genricFreeText[genricFreeTextIndex].innerText);
+      note.data.set('Generic Free Text', genricFreeText[genricFreeTextIndex].innerHTML);
     } else {
       note.data.set('Generic Free Text', 'NO_DATA');
     }
@@ -132,7 +138,7 @@ class App extends Component {
       htmlContent: `<div class="doc-WorkflowComponent-content doc-DynamicDocument-content">
       <div class="ddemrcontent" id="_bfb53c88-05af-4a83-940d-ee85b270f608" dd:contenttype="DXORDERS" dd:referenceuuid="28ADF401-6012-454F-B8DF-CD5503253E54">
           <div xmlns:dd="DynamicDocumentation" class="ddemrcontentitem ddremovable" style="clear:both" dd:entityid="28495795" dd:contenttype="DIAGNOSES">3.&#160;Eyelid retraction (Axis I diagnosis)
-              <div style="margin-left:8px" class="ddfreetext ddremovable" dd:btnfloatingstyle="top-right">Feverish cold </div>
+              <div style="margin-left:8px" class="ddfreetext ddremovable" dd:btnfloatingstyle="top-right" id="_50fd4602-9979-4fe1-8942-864fb853389b" contenteditable="true" data-nusa-concept-name="assessment plan">&nbsp;T></div>
               <div>
                   <div style="display:table-cell;*float:left;padding-left:8px;padding-right:10px">Ordered: </div>
                   <div style="display:table-cell;*float:left">
@@ -160,7 +166,7 @@ class App extends Component {
               </div>
           </div>
       </div>
-      <div id="abf85d7f-7f49-f060-9e37-5e9d06ec5d9c" class="ddfreetext ddremovable" dd:btnfloatingstyle="top-right" contenteditable="true">&nbsp;</div>
+      <div id="abf85d7f-7f49-f060-9e37-5e9d06ec5d9c" class="ddfreetext ddremovable" dd:btnfloatingstyle="top-right" contenteditable="true">Feverish cold <br><br>Fracture in right hand<br></div>
   </div>`,
       formattedHtmlContent: '',
       data: new Map()
@@ -168,11 +174,9 @@ class App extends Component {
     let futureNote = {
       htmlContent: `<div class="doc-WorkflowComponent-content doc-DynamicDocument-content">
       <div class="ddemrcontent" id="_bfb53c88-05af-4a83-940d-ee85b270f608" dd:contenttype="DXORDERS" dd:referenceuuid="28ADF401-6012-454F-B8DF-CD5503253E54">
-          <div xmlns:dd="DynamicDocumentation" class="ddemrcontentitem ddremovable" style="clear:both" dd:entityid="28495795" dd:contenttype="DIAGNOSES">3.&#160;Eyelid retraction (Axis I diagnosis)
-              <div style="clear:both"><span> &#160;</span></div>
-          </div>
           <div xmlns:dd="DynamicDocumentation" class="ddemrcontentitem ddremovable" style="clear:both" dd:entityid="28495821" dd:contenttype="DIAGNOSES">4.&#160;Pain and other conditions associated with female genital organs and menstrual cycle
-              <div style="clear:both"><span> &#160;</span></div>
+            <div style="margin-left:8px" class="ddfreetext ddremovable" dd:btnfloatingstyle="top-right">Fracture in right hand</div>  
+            <div style="clear:both"><span> &#160;</span></div>
           </div>
           <div xmlns:dd="DynamicDocumentation" class="ddemrcontentitem ddremovable" style="clear:both" dd:entityid="0">Orders: 
               <div style="padding-left:8px">
@@ -181,9 +185,6 @@ class App extends Component {
               </div>
           </div>
       </div>
-      <div id="abf85d7f-7f49-f060-9e37-5e9d06ec5d9c" class="ddfreetext ddremovable" dd:btnfloatingstyle="top-right" contenteditable="true">Feverish cold 
-          Fracture in right hand
-      </div>
       <div id="4b07f8eb-05f8-ecce-6aa5-259977a3fb62" class="ddfreetext ddremovable" dd:btnfloatingstyle="top-right" contenteditable="true">Feverish cold <br><br>Fracture in right hand<br></div>
   </div>`,
     formattedHtmlContent: '',
@@ -191,43 +192,43 @@ class App extends Component {
     };
     
     console.log("Before formatting Current Note ", currentNote.htmlContent);
-    currentNote.formattedHtmlContent = this.formatHtml(currentNote.htmlContent);
+    currentNote.htmlContent = this.formatHtml(currentNote.htmlContent);
     console.log("After formatting Current Note ", currentNote.htmlContent);
 
     console.log("Before formatting Future Note ", futureNote.htmlContent);
-    futureNote.formattedHtmlContent = this.formatHtml(futureNote.htmlContent);
+    futureNote.htmlContent = this.formatHtml(futureNote.htmlContent);
     console.log("After formatting Future Note ", futureNote.htmlContent);
 
     this.getDataMap(currentNote);
     this.getDataMap(futureNote);
 
-    debugger;
     console.log(currentNote);
     console.log(futureNote);
 
     let stopSwitch = false;
-    let forwardData = false;
-    let probNotFound = [];
-
-    for (let prob of currentNote.data.keys()) {
-
-      if (futureNote.data.has(prob)) {
-        if ( currentNote.data.get(prob) === 'NO_DATA' || currentNote.data.get(prob) === 'NO_FREE_TEXT' ) {
-          forwardData = false;
-        } else {
-          forwardData = futureNote.data.get('Generic Free Text').includes(currentNote.data.get(prob)) ? false : true;
+    let emrNotFound = [];
+    
+    debugger;
+    for (let emr of currentNote.data.keys()) {
+      if (emr !== 'Generic Free Text' && !futureNote.data.has(emr)) {
+        if ( currentNote.data.get(emr) !== 'NO_FREE_TEXT' && currentNote.data.get(emr) !== 'NO_DATA') {
+          stopSwitch = true;
+          emrNotFound.push(emr); // Could be removed if we are not intrested in the problem that is missing
         }
       }
-      if (futureNote.data.has(prob) === false) {
-        probNotFound.push(prob);
-        if ( currentNote.data.get(prob) === 'NO_DATA' || currentNote.data.get(prob) === 'NO_FREE_TEXT' ) {
-          stopSwitch = false;
-        } else {
-          stopSwitch = futureNote.data.get('Generic Free Text').includes(currentNote.data.get(prob)) ? false : true;
-        }
-      } 
+    }
+
+    if (stopSwitch) {
+      //Show warning
+    } else {
+      // Update data prop to send this as html
+      this.setState({
+        data: futureNote.htmlContent
+      })
     }
     
+    console.log('Stop Switch ',stopSwitch);
+    console.log('Problems Not Found ', emrNotFound);
   };
 
   render() {
@@ -249,7 +250,7 @@ class App extends Component {
           />
         </div>;
     }
-    debugger;
+    
     return (
       <div className="App">
         <h2>Using CKEditor 4 in React</h2>

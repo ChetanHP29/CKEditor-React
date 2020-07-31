@@ -352,4 +352,97 @@ getDataMap = (note) => {
     //   note.data.set('Generic Free Text', genricFreeText[genricFreeTextIndex].innerText)
     // }
   }
+
+  //COMPARISION
+  if(prob === 'Generic Free Text' && currentNote.data.get(prob) !== 'NO_DATA') {
+    let futureNoteData = '';
+    for (let futureNoteProb of futureNote.data.keys()) {
+      if (futureNote.data.get(futureNoteProb) !== 'NO_FREE_TEXT' || futureNote.data.get(futureNoteProb) !== 'NO_DATA') {
+        futureNoteData += futureNote.data.get(futureNoteProb);
+      }
+
+      if (futureNoteData && !futureNoteData.includes(currentNote.data.get(prob))) { // should we trim spaces just while checking.?
+        forwardData = true;
+        dataToForward.push({
+          prob: prob,
+          freeText: currentNote.data.get(prob)
+        });
+      }
+    }
+  }
+  if (prob !== 'Generic Free Text' && futureNote.data.has(prob)) {
+    if ( currentNote.data.get(prob) !== 'NO_FREE_TEXT' || currentNote.data.get(prob) !== 'NO_DATA') {
+      if (futureNote.data.get(prob) === 'NO_FREE_TEXT' || ( futureNote.data.get(prob) !== 'NO_FREE_TEXT' && futureNote.data.get(prob) === 'NO_DATA') )  {
+        if (!futureNote.data.get('Generic Free Text').includes(currentNote.data.get(prob))) {
+          forwardData = true;
+          dataToForward.push({
+            prob: prob,
+            freeText: currentNote.data.get(prob)
+          });
+        }
+      } else {
+         if (futureNote.data.get(prob) !== currentNote.data.get(prob)) { // should we trim spaces just while checking.?
+          forwardData = true;
+          dataToForward.push({
+            prob: prob,
+            freeText: currentNote.data.get(prob)
+          });
+        }
+      }
+    } /* if (futureNote.data.get(prob) !== currentNote.data.get(prob)) { // should we trim spaces just while checking.?
+      forwardData = true;
+      dataToForward.push({
+        prob: prob,
+        freeText: currentNote.data.get(prob)
+      });
+    }*/
+  } else if (prob !== 'Generic Free Text' && !futureNote.data.has(prob)){
+    probNotFound.push(prob);
+    if ( currentNote.data.get(prob) !== 'NO_FREE_TEXT' || currentNote.data.get(prob) !== 'NO_DATA') {
+      stopSwitch = true;
+    }
+  } 
+
+  //IF SAVE before template switch doesn't work as expected
+  let stopSwitch = false;
+    let forwardData = false;
+    let emrNotFound = [];
+    let dataToForward = [];
+    debugger;
+    for (let emr of currentNote.data.keys()) {
+      if (emr !== 'Generic Free Text' && futureNote.data.has(emr)) {
+        if ( currentNote.data.get(emr) !== 'NO_FREE_TEXT' && currentNote.data.get(emr) !== 'NO_DATA') {
+          if (futureNote.data.get(emr) === 'NO_FREE_TEXT' || ( futureNote.data.get(emr) !== 'NO_FREE_TEXT' && futureNote.data.get(emr) === 'NO_DATA') )  {
+            forwardData = true;
+            dataToForward.push({
+              emr: emr,
+              emrContent: currentNote.data.get(emr) // Merge or overwrite.?
+            });
+          } else {
+            if (futureNote.data.get(emr) !== currentNote.data.get(emr)) { // should we trim spaces just while checking.?
+              forwardData = true;
+              dataToForward.push({
+                  emr: emr,
+                  emrContent: currentNote.data.get(emr) // Merge or overwrite.?
+              });
+            }
+          }
+        }
+      } else if (emr !== 'Generic Free Text' && !futureNote.data.has(emr)){
+        emrNotFound.push(emr);
+        // Should stop switch only when there is data for current emr or should i stop just if the prob is missing.?
+        if ( currentNote.data.get(emr) !== 'NO_FREE_TEXT' || currentNote.data.get(emr) !== 'NO_DATA') {
+          stopSwitch = true;
+        }
+      } else if(emr === 'Generic Free Text' && currentNote.data.get(emr) !== 'NO_DATA') {
+        forwardData = true;
+        dataToForward.push({
+            emr: emr,
+            emrContent: currentNote.data.get(emr) // Merge or overwrite.?
+        });
+      } 
+    }
+
 }
+
+
