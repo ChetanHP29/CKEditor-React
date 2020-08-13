@@ -48,7 +48,7 @@ class App extends Component {
     const htmlContent = doc.body;
     // debugger;
     // htmlContent.getElementsByClassName('ddfreetext ddremovable')[2].innerHTML = "Feverless cold <br><br>Fracture in left hand<br>"
-    debugger;
+    //debugger;
     // Get all the elements with class - 'demrcontentitem ddremovable'
     const emrContentItems = htmlContent.getElementsByClassName('ddemrcontentitem ddremovable');
     const emrDatas = [];
@@ -63,7 +63,7 @@ class App extends Component {
           emrContents.push(emrContentItem)
         }   
       });
-      debugger;
+      
       if (emrContents && emrContents.length) {
         emrContents.forEach(emrContent => {
           const emrObject = { };
@@ -73,7 +73,7 @@ class App extends Component {
           if (emrContent.childNodes && emrContent.childNodes.length && emrContent.childNodes[0].wholeText) {
             emrObject.emrItem = emrContent.childNodes[0].wholeText;
           }
-          debugger;
+          
           // Find the free text box under emr
           if (emrContent.length) {
             emrContent.forEach(element => {
@@ -89,12 +89,13 @@ class App extends Component {
           if (freeTextElement) {
             if (freeTextElement.innerText.trim()) {
               emrObject.freeText = freeTextElement.innerHTML;
+              emrObject.freeTextHTML = freeTextElement.outerHTML;
             } else {
               emrObject.freeText = 'NO_DATA';
             }
           }
           
-          note.data.set(emrObject.emrItem, emrObject.freeText);
+          note.data.set(emrObject.emrItem, emrObject);
           //emrDatas.push(emrObject);  
         });
       }  
@@ -107,7 +108,6 @@ class App extends Component {
       console.log(emrDatas);
     }
 
-    debugger;
     //Find the generic free text
     const genricFreeText = htmlContent.getElementsByClassName('doc-WorkflowComponent-content doc-DynamicDocument-content')[0]
       .getElementsByClassName('ddfreetext ddremovable');
@@ -138,7 +138,7 @@ class App extends Component {
       htmlContent: `<div class="doc-WorkflowComponent-content doc-DynamicDocument-content">
       <div class="ddemrcontent" id="_bfb53c88-05af-4a83-940d-ee85b270f608" dd:contenttype="DXORDERS" dd:referenceuuid="28ADF401-6012-454F-B8DF-CD5503253E54">
           <div xmlns:dd="DynamicDocumentation" class="ddemrcontentitem ddremovable" style="clear:both" dd:entityid="28495795" dd:contenttype="DIAGNOSES">3.&#160;Eyelid retraction (Axis I diagnosis)
-              <div style="margin-left:8px" class="ddfreetext ddremovable" dd:btnfloatingstyle="top-right" id="_50fd4602-9979-4fe1-8942-864fb853389b" contenteditable="true" data-nusa-concept-name="assessment plan">&nbsp;T></div>
+              <div style="margin-left:8px" class="ddfreetext ddremovable" dd:btnfloatingstyle="top-right">Feverish cold </div>
               <div>
                   <div style="display:table-cell;*float:left;padding-left:8px;padding-right:10px">Ordered: </div>
                   <div style="display:table-cell;*float:left">
@@ -166,17 +166,18 @@ class App extends Component {
               </div>
           </div>
       </div>
-      <div id="abf85d7f-7f49-f060-9e37-5e9d06ec5d9c" class="ddfreetext ddremovable" dd:btnfloatingstyle="top-right" contenteditable="true">Feverish cold <br><br>Fracture in right hand<br></div>
+      <div id="abf85d7f-7f49-f060-9e37-5e9d06ec5d9c" class="ddfreetext ddremovable" dd:btnfloatingstyle="top-right" contenteditable="true">&nbsp;</div>
   </div>`,
-      formattedHtmlContent: '',
       data: new Map()
     };
     let futureNote = {
       htmlContent: `<div class="doc-WorkflowComponent-content doc-DynamicDocument-content">
       <div class="ddemrcontent" id="_bfb53c88-05af-4a83-940d-ee85b270f608" dd:contenttype="DXORDERS" dd:referenceuuid="28ADF401-6012-454F-B8DF-CD5503253E54">
+          <div xmlns:dd="DynamicDocumentation" class="ddemrcontentitem ddremovable" style="clear:both" dd:entityid="28495795" dd:contenttype="DIAGNOSES">3.&#160;Eyelid retraction (Axis I diagnosis)
+              <div style="clear:both"><span> &#160;</span></div>
+          </div>
           <div xmlns:dd="DynamicDocumentation" class="ddemrcontentitem ddremovable" style="clear:both" dd:entityid="28495821" dd:contenttype="DIAGNOSES">4.&#160;Pain and other conditions associated with female genital organs and menstrual cycle
-            <div style="margin-left:8px" class="ddfreetext ddremovable" dd:btnfloatingstyle="top-right">Fracture in right hand</div>  
-            <div style="clear:both"><span> &#160;</span></div>
+              <div style="clear:both"><span> &#160;</span></div>
           </div>
           <div xmlns:dd="DynamicDocumentation" class="ddemrcontentitem ddremovable" style="clear:both" dd:entityid="0">Orders: 
               <div style="padding-left:8px">
@@ -187,7 +188,6 @@ class App extends Component {
       </div>
       <div id="4b07f8eb-05f8-ecce-6aa5-259977a3fb62" class="ddfreetext ddremovable" dd:btnfloatingstyle="top-right" contenteditable="true">Feverish cold <br><br>Fracture in right hand<br></div>
   </div>`,
-    formattedHtmlContent: '',
       data: new Map()
     };
     
@@ -208,14 +208,80 @@ class App extends Component {
     let stopSwitch = false;
     let emrNotFound = [];
     
+    // WITH SAVE
+    // for (let emr of currentNote.data.keys()) {
+    //   if (emr !== 'Generic Free Text' && !futureNote.data.has(emr)) {
+    //     if ( currentNote.data.get(emr) !== 'NO_FREE_TEXT' && currentNote.data.get(emr) !== 'NO_DATA') {
+    //       stopSwitch = true;
+    //       emrNotFound.push(emr); // Could be removed if we are not intrested in the problem that is missing
+    //     }
+    //   }
+    // }
+
+    let upadatedHtml = null;
+    // WITHOUT SAVE
     debugger;
     for (let emr of currentNote.data.keys()) {
-      if (emr !== 'Generic Free Text' && !futureNote.data.has(emr)) {
-        if ( currentNote.data.get(emr) !== 'NO_FREE_TEXT' && currentNote.data.get(emr) !== 'NO_DATA') {
-          stopSwitch = true;
-          emrNotFound.push(emr); // Could be removed if we are not intrested in the problem that is missing
+      if (emr !== 'Generic Free Text' && futureNote.data.has(emr) ){
+        if ( currentNote.data.get(emr).freeText !== 'NO_FREE_TEXT' && currentNote.data.get(emr).freeText !== 'NO_DATA') {
+          if (futureNote.data.get(emr).freeText === 'NO_FREE_TEXT' || futureNote.data.get(emr).freeText === 'NO_DATA' ) {
+            stopSwitch = true;
+            //dataToForward.push(currentNote.data.get(emr));
+            // Should fewd free text html
+            console.log(futureNote.htmlContent);
+            let parser = new DOMParser();
+            let doc = parser.parseFromString(futureNote.htmlContent, 'text/html');
+            const htmlContent = doc.body;
+            const emrContentItems = htmlContent.getElementsByClassName('ddemrcontentitem ddremovable');
+          
+            debugger;
+            console.log(htmlContent);
+
+            if (emrContentItems && emrContentItems.length) {
+              const emrContents = [];
+              // Filter the elements that or not emr, example Orders
+              emrContentItems.forEach((emrContentItem) => {
+                // SHould consider emrContentItem.getAttribute('dd:contenttype') === 'DIAGNOSES' instead of emrContentItem.hasAttribute('dd:contenttype')
+                // if any other tags apart from emrItems has this attribute and consider hekcing for other emrtypes as weel same as DIAGNOSES        // 
+                if(emrContentItem.getAttribute('xmlns:dd') === 'DynamicDocumentation' && emrContentItem.hasAttribute('dd:contenttype')) { 
+                  if (emrContentItem.innerText.trim() === emr.trim()) {
+                    debugger;
+                    let parser = new DOMParser();
+                    let doc = parser.parseFromString(currentNote.data.get(emr).freeTextHTML, 'text/html');
+                    
+                    //emrContentItem.appendChild(doc.body.getElementsByTagName('div')[0]);
+
+                    emrContentItem.insertBefore(doc.body.getElementsByTagName('div')[0], emrContentItem.firstChild);
+                  }
+                }   
+              });
+              
+              // if (emrContents && emrContents.length) {
+              //   emrContents.forEach(emrContent => {
+              //     if (emrContent.innerText.trim() === emr.trim()) {
+              //       debugger;
+              //       emrContent.outerHTML = currentNote.data.get(emr).freeTextElement
+              //     }
+              //   });
+              // }
+            }
+            
+            debugger;
+            console.log(htmlContent);
+            console.log(emrContentItems);
+
+          } else if (futureNote.data.get(emr).freeText !== 'NO_FREE_TEXT' && futureNote.data.get(emr).freeText !== 'NO_DATA') {
+            stopSwitch = true;
+            // Should overwrite free text html
+          }
         }
-      }
+      } else if (emr !== 'Generic Free Text' && !futureNote.data.has(emr)) {
+        if ( currentNote.data.get(emr).freeText !== 'NO_FREE_TEXT' && currentNote.data.get(emr).freeText !== 'NO_DATA') {
+          // SHow Data Loss Warning
+        }
+      } else if (emr === 'Generic Free Text' && currentNote.data.get(emr).freeText !== 'NO_DATA') {
+        // Overwrite to future
+      } 
     }
 
     if (stopSwitch) {
