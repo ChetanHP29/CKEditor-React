@@ -48,26 +48,13 @@ class App extends Component {
       return doc.body;
     };
   
-    // getEmrContents = (emrContentItems) => {
-    //   debugger;
-    //   return emrContentItems.filter((emrContentItem) => {
-    //       // Should consider emrContentItem.getAttribute('dd:contenttype') === 'DIAGNOSES' instead of emrContentItem.hasAttribute('dd:contenttype')
-    //       // if any other tags apart from emrItems has this attribute and consider hekcing for other emrtypes as weel same as DIAGNOSES
-    //       return emrContentItem.getAttribute('xmlns:dd') === 'DynamicDocumentation' && emrContentItem.hasAttribute('dd:contenttype');
-    //     });
-    // };
-
     getEmrContents = (emrContentItems) => {
-      const emrContents = [];
-      // Filter the elements that or not emr, example Orders
-      emrContentItems.forEach((emrContentItem) => {
-        // Should consider emrContentItem.getAttribute('dd:contenttype') === 'DIAGNOSES' instead of emrContentItem.hasAttribute('dd:contenttype')
-        // if any other tags apart from emrItems has this attribute and consider hekcing for other emrtypes as weel same as DIAGNOSES
-        if(emrContentItem.getAttribute('xmlns:dd') === 'DynamicDocumentation' && emrContentItem.hasAttribute('dd:contenttype')) { 
-          emrContents.push(emrContentItem)
-        }   
-      });
-      return emrContents;
+      debugger;
+      return emrContentItems.filter((emrContentItem) => {
+          // Should consider emrContentItem.getAttribute('dd:contenttype') === 'DIAGNOSES' instead of emrContentItem.hasAttribute('dd:contenttype')
+          // if any other tags apart from emrItems has this attribute and consider hekcing for other emrtypes as weel same as DIAGNOSES
+          return emrContentItem.getAttribute('xmlns:dd') === 'DynamicDocumentation' && emrContentItem.hasAttribute('dd:contenttype');
+        });
     };
   
     // getGenericFreeTextElement = (htmlContent) => {
@@ -98,7 +85,7 @@ class App extends Component {
       const htmlContent = this.stringToHTML(note.htmlContent);
       
       // Get all the EMR elements, i.e., elements that has the class name - 'ddemrcontentitem ddremovable'
-      const emrContentItems = htmlContent.getElementsByClassName('ddemrcontentitem ddremovable');
+      const emrContentItems = Array.from(htmlContent.getElementsByClassName('ddemrcontentitem ddremovable'));
   
       if (emrContentItems && emrContentItems.length) {
         
@@ -114,6 +101,7 @@ class App extends Component {
               emrObject.emrItem = emrContent.childNodes[0].wholeText.trim();
             }
             
+            debugger;
             // Find the free text box under emr
             if (emrContent.length) {
               debugger;
@@ -138,27 +126,25 @@ class App extends Component {
               }
             }
             
-            note.emrData.push(emrObject);
+            note.emrData.set(emrObject.emrItem, emrObject);
           });
         }  
       }
+      debugger;
       let genricFreeText = this.getGenericFreeTextElement(htmlContent);
       if (genricFreeText.element === undefined) {
-        note.emrData.push({
-          emrItem: 'Generic Free Text',
+        note.emrData.set('Generic Free Text', {
           freeTextData: 'NO_FREE_TEXT'
         });
       } else if (genricFreeText.element && genricFreeText.element.innerText.trim()) {
-        note.emrData.push({
-          emrItem: 'Generic Free Text',
+        note.emrData.set('Generic Free Text', {
           freeTextIndex: genricFreeText.index,
           freeTextData: genricFreeText.element.innerText,
           freeTextInnerHTML: genricFreeText.element.innerHTML,
           freeTextOuterHTML: genricFreeText.element.outerHTML
         }); 
       } else {
-        note.emrData.push({
-          emrItem: 'Generic Free Text',
+        note.emrData.set('Generic Free Text', {
           freeTextData: 'NO_DATA'
         });
       }
@@ -169,21 +155,9 @@ class App extends Component {
 
     let currentTemplate = {
       htmlContent: `<div class="doc-WorkflowComponent-content doc-DynamicDocument-content">
-      
       <div class="ddemrcontent" id="_bfb53c88-05af-4a83-940d-ee85b270f608" dd:contenttype="DXORDERS" dd:referenceuuid="28ADF401-6012-454F-B8DF-CD5503253E54">
-          <div xmlns:dd="DynamicDocumentation" class="ddemrcontentitem ddremovable" style="clear:both" dd:entityid="28495465" dd:contenttype="DIAGNOSES">1.&#160;DX - 2 (Axis I diagnosis)
-              <div style="clear:both"></div>
-          </div>
-          <div xmlns:dd="DynamicDocumentation" class="ddemrcontentitem ddremovable" style="clear:both" dd:entityid="28495471" dd:contenttype="DIAGNOSES">3.&#160;DX - 3 (Axis I diagnosis)
-            <div style="margin-left:8px" class="ddfreetext ddremovable" dd:btnfloatingstyle="top-right" id="_7167d6e0-97ed-49aa-b1eb-e6cc1eccc9e0" contenteditable="true" data-nusa-concept-name="assessment plan">&nbsp;</div>
-                <div style="clear:both"></div>
-            </div>
-          <div xmlns:dd="DynamicDocumentation" class="ddemrcontentitem ddremovable" style="clear:both" dd:entityid="2105554153" dd:contenttype="DIAGNOSES" id="_8c56b659-e175-412f-a90b-c894b135d827">Chronic fever
-              <div style="margin-left:8px" class="ddfreetext ddremovable" dd:btnfloatingstyle="top-right" id="_7167d6e0-97ed-49aa-b1eb-e6cc1eccc9e0" contenteditable="true" data-nusa-concept-name="assessment plan">&nbsp;Temperature of 102, with no other symptoms</div>
-              <div style="clear:both"></div>
-          </div>
           <div xmlns:dd="DynamicDocumentation" class="ddemrcontentitem ddremovable" style="clear:both" dd:entityid="28495795" dd:contenttype="DIAGNOSES">3.&#160;Eyelid retraction (Axis I diagnosis)
-              <div style="margin-left:8px" class="ddfreetext ddremovable" dd:btnfloatingstyle="top-right">Feverish cold </div>
+              <div style="margin-left:8px" class="ddfreetext ddremovable" dd:btnfloatingstyle="top-right">Fracture</div>
               <div>
                   <div style="display:table-cell;*float:left;padding-left:8px;padding-right:10px">Ordered: </div>
                   <div style="display:table-cell;*float:left">
@@ -193,7 +167,7 @@ class App extends Component {
               <div style="clear:both"><span> &#160;</span></div>
           </div>
           <div xmlns:dd="DynamicDocumentation" class="ddemrcontentitem ddremovable" style="clear:both" dd:entityid="28495821" dd:contenttype="DIAGNOSES">4.&#160;Pain and other conditions associated with female genital organs and menstrual cycle
-              <div style="margin-left:8px" class="ddfreetext ddremovable" dd:btnfloatingstyle="top-right">Fracture in right hand</div>
+              <div style="margin-left:8px" class="ddfreetext ddremovable" dd:btnfloatingstyle="top-right">&nbsp;</div>
               <div>
                   <div style="display:table-cell;*float:left;padding-left:8px;padding-right:10px">Ordered: </div>
                   <div style="display:table-cell;*float:left">
@@ -202,23 +176,23 @@ class App extends Component {
               </div>
               <div style="clear:both"><span> &#160;</span></div>
           </div>
-          <div xmlns:dd="DynamicDocumentation" class="ddemrcontentitem ddremovable" style="clear:both" dd:entityid="2080117899" dd:contenttype="DIAGNOSES" id="_8c93e9d2-a179-4d76-bde2-0b27c6364d6d">Gas (Complaint of)
-              <div style="margin-left:8px" class="ddfreetext ddremovable" dd:btnfloatingstyle="top-right" id="_92a752e3-0afb-4ff6-a9ac-7a92243c8527" contenteditable="true">Burning Throt</div>
-              <div style="clear:both"></div>
+          <div xmlns:dd="DynamicDocumentation" class="ddemrcontentitem ddremovable" style="clear:both" dd:entityid="0">Orders: 
+              <div style="padding-left:8px">
+                  <div class="ddemrcontentitem ddremovable" dd:entityid="2171389937" dd:contenttype="MEDICATIONS">captopril, 12 mg, Cap, Buccal, q4-6hr, Start Date/Time: 09/12/18, Future Order, 09/12/18 1:00:00 CDT</div>
+                  <div class="ddemrcontentitem ddremovable" dd:entityid="2171389913" dd:contenttype="MEDICATIONS">diflunisal, 250 mg, Oral, 12x/Day, PRN pain, Start Date/Time: 09/11/18 7:47:00 CDT, 09/11/18 7:47:00 CDT</div>
+                  <div class="ddemrcontentitem ddremovable" dd:entityid="2171389929" dd:contenttype="MEDICATIONS">lisinopril, 20 mg, Oral, 1-2x/Day, Start Date/Time: 09/12/18 0:00:00 CDT, 09/12/18 0:00:00 CDT</div>
+                  <div class="ddemrcontentitem ddremovable" dd:entityid="2171389905" dd:contenttype="MEDICATIONS">methadone, 40 mg, Oral, 16x/Day, PRN pain, Start Date/Time: 09/11/18 7:46:00 CDT, 09/11/18 7:46:00 CDT</div>
+              </div>
           </div>
       </div>
-      <div id="abf85d7f-7f49-f060-9e37-5e9d06ec5d9c" class="ddfreetext ddremovable" dd:btnfloatingstyle="top-right" contenteditable="true">Pain associated with micturition<br><br>Feverish cold</div>
+      <div id="abf85d7f-7f49-f060-9e37-5e9d06ec5d9c" class="ddfreetext ddremovable" dd:btnfloatingstyle="top-right" contenteditable="true">&nbsp;</div>
   </div>`,
-      emrData: []
+      emrData: new Map()
     };
     let futureTemplate = {
       htmlContent: `<div class="doc-WorkflowComponent-content doc-DynamicDocument-content">
       <div class="ddemrcontent" id="_bfb53c88-05af-4a83-940d-ee85b270f608" dd:contenttype="DXORDERS" dd:referenceuuid="28ADF401-6012-454F-B8DF-CD5503253E54">
           <div xmlns:dd="DynamicDocumentation" class="ddemrcontentitem ddremovable" style="clear:both" dd:entityid="2105554153" dd:contenttype="DIAGNOSES" id="_8c56b659-e175-412f-a90b-c894b135d827">Chronic fever
-              <div style="clear:both"></div>
-          </div>
-          <div xmlns:dd="DynamicDocumentation" class="ddemrcontentitem ddremovable" style="clear:both" dd:entityid="2120591875" dd:contenttype="DIAGNOSES" id="_26043a5c-7169-445a-939b-7f8173e1982c">Acute chest pain
-              <div style="margin-left:8px" class="ddfreetext ddremovable" dd:btnfloatingstyle="top-right">&nbsp;</div>
               <div style="clear:both"></div>
           </div>
           <div xmlns:dd="DynamicDocumentation" class="ddemrcontentitem ddremovable" style="clear:both" dd:entityid="28495795" dd:contenttype="DIAGNOSES">3.&#160;Eyelid retraction (Axis I diagnosis)
@@ -243,8 +217,8 @@ class App extends Component {
           </div>
       </div>
       <div id="abf85d7f-7f49-f060-9e37-5e9d06ec5d9c" class="ddfreetext ddremovable" dd:btnfloatingstyle="top-right" contenteditable="true">Pain </div>
-  </div>`,
-      emrData: []
+    </div>`,
+      emrData: new Map()
     };
     
     console.log("Before formatting Current Note ", currentTemplate.htmlContent);
@@ -258,13 +232,43 @@ class App extends Component {
     this.getEmrFromTemplate(currentTemplate);
     this.getEmrFromTemplate(futureTemplate);
     debugger;
+    const testHtml = this.stringToHTML(`<div class="doc-WorkflowComponent-content doc-DynamicDocument-content">
+    <div class="ddfreetext ddremovable" dd:btnfloatingstyle="top-right" contenteditable="true" id="_682f6fbd-f626-4b7a-b8ae-e665e933be46" contentEditable="true">Pain associated with micturition<br /><br />Feverish cold<br /><br />Testing Save dd:templateID dd:templateName</div>
+    <div class="ddemrcontent" id="_bfb53c88-05af-4a83-940d-ee85b270f608" dd:contenttype="DXORDERS" dd:referenceuuid="28ADF401-6012-454F-B8DF-CD5503253E54" dd:templateid="789" dd:templatename="A&amp;P Inpatient - Orders Grouped"><div xmlns:dd="DynamicDocumentation" class="ddemrcontentitem ddremovable" style="clear:both" dd:entityid="2105554153" dd:contenttype="DIAGNOSES" id="_5d541ab5-1b24-4052-9041-ebc337e92569">Chronic fever
+   <div style="margin-left:8px" class="ddfreetext ddremovable" dd:btnfloatingstyle="top-right" contenteditable="true" id="_ee8f49ed-2573-45ac-92bb-01148eb2a756" contentEditable="true"> Temperature of 102, with no other symptoms</div>
+   <div style="clear:both"></div>
+</div>
+<div xmlns:dd="DynamicDocumentation" class="ddemrcontentitem ddremovable" style="clear:both" dd:entityid="2080117899" dd:contenttype="DIAGNOSES" id="_fa4090b8-7279-46a4-9181-1a82c67f83ae">Gas (Complaint of)
+   <div style="margin-left:8px" class="ddfreetext ddremovable" dd:btnfloatingstyle="top-right" contenteditable="true" id="_232a7384-8456-4e09-8d27-2105f1eab86b" contentEditable="true">Burning Throt   </div>
+   <div style="clear:both"></div>
+</div></div>
+  
+
+</div>`)
+    // console.log(testHtml);
+    // let templateID = null;
+    // let templateName = null;
+    // testHtml.getElementsByClassName('doc-WorkflowComponent-content doc-DynamicDocument-content')[0].children.forEach(htmlElement => {
+    //   if(htmlElement.getAttribute('dd:templateid')) {
+    //     templateID = htmlElement.getAttribute('dd:templateid');
+    //   }
+
+    //   if(htmlElement.getAttribute('dd:templatename')) {
+    //     templateName = htmlElement.getAttribute('dd:templatename');
+    //   }
+    // });
+
     
+
     let stopSwitch = false;
     let shouldCompare = false;
 
-    debugger;
-    
-    shouldCompare = currentTemplate.emrData.some((emr) => emr.freeTextData !== 'NO_FREE_TEXT' && emr.freeTextData !== 'NO_DATA');
+    for (let emrData of currentTemplate.emrData.values()) {
+      if (emrData.freeTextData !== 'NO_FREE_TEXT' && emrData.freeTextData !== 'NO_DATA') {
+        shouldCompare = true;
+        // can i return out of loop as soon as i find some data
+      }
+    }
 
     debugger;
     if (shouldCompare) {
@@ -273,89 +277,7 @@ class App extends Component {
       const emrContentItems = Array.from(upadatedFutureHtml.getElementsByClassName('ddemrcontentitem ddremovable'));
       
       const emrContents = this.getEmrContents(emrContentItems);
-      
-      const emrFound = [];
-      const emrNotFound = [];
-      const emrToBeLost = [];
 
-      currentTemplate.emrData.forEach((emrCurrent, index) => {
-        if (emrCurrent.emrItem !== 'Generic Free Text') {
-          futureTemplate.emrData.some(emrFuture => emrFuture.emrItem === emrCurrent.emrItem) ? 
-            emrFound.push({
-              emrItem: emrCurrent.emrItem,
-              index: index
-            }) : 
-            emrNotFound.push({
-              emrItem: emrCurrent.emrItem,
-              index: index
-            });
-        } else {
-          if (emrCurrent.freeTextData !== 'NO_FREE_TEXT' && emrCurrent.freeTextData !== 'NO_DATA') {
-            emrFound.push({
-              emrItem: emrCurrent.emrItem,
-              index: index
-            });
-          } 
-        }
-      });
-
-      debugger;
-      console.log(emrFound);
-      console.log(emrNotFound);
-
-      if (emrFound.length) {
-        emrFound.forEach(emr => {
-          if (emr.emrItem === 'Generic Free Text' && currentTemplate.emrData[emr.index].freeTextData !== 'NO_FREE_TEXT' && currentTemplate.emrData[emr.index].freeTextData !==  'NO_DATA') {
-            // Find this EMR in future template
-            const emrData = futureTemplate.emrData.find(futureEmr => futureEmr.emrItem === emr.emrItem);
-            if (emrData.freeTextData === 'NO_FREE_TEXT') {
-              // Place at beginning in future template
-              if (currentTemplate.emrData[emr.index].freeTextIndex === 0) {
-                const htmlContent = this.stringToHTML(currentTemplate.emrData[emr.index].freeTextOuterHTML);
-                const parentDiv = upadatedFutureHtml.getElementsByClassName('doc-WorkflowComponent-content doc-DynamicDocument-content')[0]
-                parentDiv.insertBefore(htmlContent.getElementsByTagName('div')[0], parentDiv.firstElementChild);
-              } else {
-                // Place at the end in future template
-                const htmlContent = this.stringToHTML(currentTemplate.emrData[emr.index].freeTextOuterHTML);
-                const parentDiv = upadatedFutureHtml.getElementsByClassName('doc-WorkflowComponent-content doc-DynamicDocument-content')[0]
-                parentDiv.insertBefore(htmlContent.getElementsByTagName('div')[0], null);
-              }
-            } else {
-              const genricFreeText = this.getGenericFreeTextElement(upadatedFutureHtml);
-              genricFreeText.element.innerHTML = currentTemplate.emrData[emr.index].freeTextInnerHTML;
-            }
-          } else if (currentTemplate.emrData[emr.index].freeTextData  !== 'NO_FREE_TEXT' && currentTemplate.emrData[emr.index].freeTextData  !== 'NO_DATA'){
-              // Find this EMR in future template
-              const emrData = futureTemplate.emrData.find(futureEmr => futureEmr.emrItem === emr.emrItem);
-              // If future template doesn't have free text box for the EMR, copy forward the current template's free text/outerHTML
-              if (emrData.freeTextData === 'NO_FREE_TEXT') {
-                emrContents.forEach(emrContent => {
-                  if (emrContent.childNodes[0].wholeText.trim() === emr.emrItem.trim()) {
-                    let htmlContent = this.stringToHTML(currentTemplate.emrData[emr.index].freeTextOuterHTML);
-                    emrContent.insertBefore(htmlContent.getElementsByTagName('div')[0], emrContent.firstElementChild);
-                  }
-                });
-              } else { // If future template  has a free text box for EMR, forward current template's free text innerHtml
-                emrContents.forEach(emrContent => {
-                  if (emrContent.childNodes[0].wholeText.trim() === emr.emrItem.trim()) {
-                    emrContent.firstElementChild.innerHTML = currentTemplate.emrData[emr.index].freeTextInnerHTML;
-                  }
-                });
-              }
-          }
-        });
-      }
-
-      if (emrNotFound.length) {
-        emrNotFound.forEach(emr => {
-          if ( currentTemplate.emrData[emr.index].freeTextData !== 'NO_FREE_TEXT' && currentTemplate.emrData[emr.index].freeTextData !== 'NO_DATA') {
-            stopSwitch = true;
-            emrToBeLost.push(currentTemplate.emrData[emr.index].emrItem)
-          }
-        });
-      }
-
-      /*
       for (let emr of currentTemplate.emrData.keys()) {
         if (emr !== 'Generic Free Text' && futureTemplate.emrData.has(emr) ){
           if ( currentTemplate.emrData.get(emr).freeTextData !== 'NO_FREE_TEXT' && currentTemplate.emrData.get(emr).freeTextData !== 'NO_DATA') {
@@ -379,7 +301,7 @@ class App extends Component {
           if ( currentTemplate.emrData.get(emr).freeTextData !== 'NO_FREE_TEXT' && currentTemplate.emrData.get(emr).freeTextData !== 'NO_DATA') {
             stopSwitch = true;
           }
-        } else if (emr === 'Generic Free Text' && currentTemplate.emrData.get(emr).freeTextData !== 'NO_FREE_TEXT' && currentTemplate.emrData.get(emr).freeTextData !==  'NO_DATA') {
+        } else if (emr === 'Generic Free Text' && currentTemplate.emrData.get(emr).freeTextData !== 'NO_FREE_TEXT' && currentTemplate.emrData.get(emr).freeTextData !== 'NO_DATA') {
           debugger;
             if (futureTemplate.emrData.get(emr).freeTextData === 'NO_FREE_TEXT') {
               // Where should i add place it
@@ -404,16 +326,12 @@ class App extends Component {
               genricFreeText.element.innerHTML = currentTemplate.emrData.get(emr).freeTextInnerHTML;
             }
         } 
-      } */
+      }
 
       // Converting DOM to string and removing the <body> tag added by XMLSerializer
-      debugger;
       let oSerializer = new XMLSerializer();
       upadatedFutureHtml = oSerializer.serializeToString(upadatedFutureHtml)
         .replace(/<body[^>]+\?>/i, '').replace(/<\/body>/i, '').replace(/<[//]{0,1}(BODY|body)[^><]*>/g, "");
-
-      debugger;
-      console.log(upadatedFutureHtml);
 
       if (stopSwitch) {
         alert('DATALOSS');
@@ -503,3 +421,39 @@ export default App;
 //event.target.innerText
 //event.target.textContent
 //workflowComponents[0].querySelector('.doc-WorkflowComponent-content');
+
+
+async loadTemplateList() {
+    try {
+      //const response = APMock.refTemplates; // TODO remove this line of mock data
+       const response = await this.context.fetchWorkflowTemplateList(this.props.conceptCki);
+      if (response.length) { //if (response.length) {
+        this.setState({
+          referenceTemplateList: response, //response
+        });
+        //CP049527 START
+        let templateID = null;
+        let templateName = null;
+        testHtml.getElementsByClassName('doc-WorkflowComponent-content doc-DynamicDocument-content')[0].children.forEach(htmlElement => {
+          if(htmlElement.getAttribute('dd:templateid')) {
+            templateID = htmlElement.getAttribute('dd:templateid');
+          }
+
+          if(htmlElement.getAttribute('dd:templatename')) {
+            templateName = htmlElement.getAttribute('dd:templatename');
+          }
+        });
+
+        if (templateID) {
+          response.refTemplates.forEach(template => {
+            
+          });
+        } 
+        
+        //CP049527 END
+        this.fetchDefaultTemplate()
+      }
+    } catch (e) {
+      this.addErrorMessage((this.props.intl.formatMessage({ id: 'workflow-component.failed-to-load' })).replace('{text}', 'Template'));
+    }
+  }

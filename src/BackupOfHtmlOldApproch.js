@@ -927,7 +927,7 @@ getDataMap = (note) => {
     return genricFreeTextElement;
   };
 
-  publishCKEditorChange(event) {
+  function publishCKEditorChange(event) {
     // if (this.state.resetUndoRedo) {
     //   this.resetUndoSnapshot();
     //   this.setState({
@@ -937,4 +937,292 @@ getDataMap = (note) => {
     //   this.context.ckeditorChangeEvent(event);
     // }
     this.context.ckeditorChangeEvent(event);
+  }
+
+
+  // WorkfloComponentContainer - Before Optimization 04/09/2020
+
+  /**
+   * This function removes any spaces and replaces unicodes.
+   * @param {string} htmlString - An html string. 
+   * @returns {string} - string with no extra spaces and unicodes replaced with string equivalent.
+   */
+  formatHtml = (htmlString) => htmlString
+    .replace(/(\n|\r|\t|\v|\f)+/g, '')
+    .replace(/\s+/g, ' ')
+    .replace(/&#xA0;/g, ' ')
+    .replace(/↵/g, '')
+    .trim();
+
+  /**
+   * This function converts the html string to Document.
+   * @param {string} htmlString - An html string.
+   * @returns {Document} - Document version of the passed in html in string.
+   */
+  stringToHTML = (htmlString) => {
+    let parser = new DOMParser();
+    let doc = parser.parseFromString(htmlString, 'text/html');
+    return doc.body;
+  };
+
+  /**
+   * This function gets all the EMR elements and filters other elements.
+   * @param {array} emrContentItems - Array containing the elements wiht class 'ddemrcontentitem ddremovable'.
+   * @returns {emrContents} - array containing the EMR elements.
+   */
+  getEmrContents = (emrContentItems) => {
+    const emrContents = [];
+    // Filter the elements that or not emr, example Orders
+    emrContentItems.forEach((emrContentItem) => {
+      // Should consider emrContentItem.getAttribute('dd:contenttype') === 'DIAGNOSES' instead of emrContentItem.hasAttribute('dd:contenttype')
+      // if any other tags apart from emrItems has this attribute and consider hekcing for other emrtypes as weel same as DIAGNOSES
+      if(emrContentItem.getAttribute('xmlns:dd') === 'DynamicDocumentation' && emrContentItem.hasAttribute('dd:contenttype')) { 
+        emrContents.push(emrContentItem)
+      }   
+    });
+    return emrContents;
+  };
+
+  /**
+   * This function gets all the EMR and its data and store it to a map which will be used to compare with.
+   * the newly selected template's data to check for the data loss and to copy forward the user entered data.
+   * @param {HTMLElement} htmlContent - HTMLElement.
+   * @returns {object} - Object contining free text element and its position.
+   */
+  getGenericFreeTextElement = (htmlContent) => {
+    let genricFreeText = {};
+    htmlContent.getElementsByClassName('doc-WorkflowComponent-content doc-DynamicDocument-content')[0].children.forEach((freeTextElement, index) => {
+        if (freeTextElement.getAttribute('class') === "ddfreetext ddremovable") {
+            genricFreeText.element = freeTextElement
+            genricFreeText.index = index;
+        } 
+      });
+    return genricFreeText;
+  };
+
+  /**
+   * This function gets all the EMRs & its data and store it to a map which will be used to compare with.
+   * the newly selected template's data to check for the data loss and to copy forward the user entered data.
+   * @param {object} note - Object containing html content and a map to store the EMR data.
+   * @returns {undefined}
+   */
+  getEmrFromTemplate = (note) => {
+    const htmlContent = this.stringToHTML(note.htmlContent);
+    
+    const emrContentItems = htmlContent.getElementsByClassName('ddemrcontentitem ddremovable');
+
+    if (emrContentItems && emrContentItems.length) {
+      
+      const emrContents = this.getEmrContents(emrContentItems);
+      
+      if (emrContents && emrContents.length) {
+        emrContents.forEach(emrContent => {
+          const emrObject = { };
+          let freeTextElement = '';
+
+          // Get the emr name
+          if (emrContent.childNodes && emrContent.childNodes.length && emrContent.childNodes[0].wholeText) {
+            emrObject.emrItem = emrContent.childNodes[0].wholeText.trim();
+          }
+          
+          // Find the free text box under emr
+          if (emrContent.length) {
+            emrContent.forEach(element => {
+              if (element.getAttribute('class') === 'ddfreetext ddremovable') {
+                freeTextElement = element;
+              }
+            })
+          } else if (emrContent.getElementsByClassName('ddfreetext ddremovable').length) {
+            freeTextElement = emrContent.getElementsByClassName('ddfreetext ddremovable')[0];
+          } else {
+            emrObject.freeTextData = 'NO_FREE_TEXT';
+          }
+
+          if (freeTextElement) {
+            if (freeTextElement.innerText.trim()) {
+              emrObject.freeTextData = freeTextElement.innerText;
+              emrObject.freeTextOuterHTML = freeTextElement.outerHTML;
+              emrObject.freeTextInnerHTML = freeTextElement.innerHTML;
+            } else {
+              emrObject.freeTextData = 'NO_DATA';
+            }
+          }
+          
+          note.emrData.set(emrObject.emrItem, emrObject);
+        });
+      }  
+    }
+
+    let genricFreeText = this.getGenericFreeTextElement(htmlContent);
+    if (genricFreeText.element === undefined) {
+      note.emrData.set('Generic Free Text', {
+        freeTextData: 'NO_FREE_TEXT'
+      });
+    } else if (genricFreeText.element && genricFreeText.element.innerText.trim()) {
+      note.emrData.set('Generic Free Text', {
+        freeTextIndex: genricFreeText.index,
+        freeTextData: genricFreeText.element.innerText,
+        freeTextInnerHTML: genricFreeText.element.innerHTML,
+        freeTextOuterHTML: genricFreeText.element.outerHTML
+      }); 
+    } else {
+      note.emrData.set('Generic Free Text', {
+        freeTextData: 'NO_DATA'
+      });
+    }
+  };
+
+  /**
+   * This function get the selected template data and updates the CKEditor content, if there is no data loss.
+   * IF there is a data loss it shows a Notification dialoge with data loss waring.
+   * @param {number} selectedTemplateID - selected template id.
+   * @returns {undefined}
+   */
+  templateSwitchHandler = (selectedTemplateID) => {
+    const currentTemplateHtml = WorkflowDocumentManager.getCKEditorData(this.props.conceptCki);
+    
+    let currentTemplate = {
+      htmlContent: this.formatHtml(currentTemplateHtml),
+      emrData: new Map()
+    };
+    let futureTemplate = {
+      htmlContent: this.formatHtml(`<div class="doc-WorkflowComponent-content doc-DynamicDocument-content">
+      <div id="abf85d7f-7f49-f060-9e37-5e9d06ec5d9c" class="ddfreetext ddremovable" dd:btnfloatingstyle="top-right" contenteditable="true">Pain </div>
+      <div class="ddemrcontent" id="_bfb53c88-05af-4a83-940d-ee85b270f608" dd:contenttype="DXORDERS" dd:referenceuuid="28ADF401-6012-454F-B8DF-CD5503253E54">
+          <div xmlns:dd="DynamicDocumentation" class="ddemrcontentitem ddremovable" style="clear:both" dd:entityid="2105554153" dd:contenttype="DIAGNOSES" id="_8c56b659-e175-412f-a90b-c894b135d827">Chronic fever
+              <div style="clear:both"></div>
+          </div>
+          <div xmlns:dd="DynamicDocumentation" class="ddemrcontentitem ddremovable" style="clear:both" dd:entityid="2120591875" dd:contenttype="DIAGNOSES" id="_26043a5c-7169-445a-939b-7f8173e1982c">Acute chest pain
+            <div style="margin-left:8px" class="ddfreetext ddremovable" dd:btnfloatingstyle="top-right">&nbsp;</div>
+            <div style="clear:both"></div>
+          </div>
+          <div xmlns:dd="DynamicDocumentation" class="ddemrcontentitem ddremovable" style="clear:both" dd:entityid="28495795" dd:contenttype="DIAGNOSES">3.&#160;Eyelid retraction (Axis I diagnosis)
+              <div style="margin-left:8px" class="ddfreetext ddremovable" dd:btnfloatingstyle="top-right">&nbsp;</div>
+              <div>
+                  <div style="display:table-cell;*float:left;padding-left:8px;padding-right:10px">Ordered: </div>
+                  <div style="display:table-cell;*float:left">
+                      <div class="ddemrcontentitem ddremovable" dd:entityid="2171389921" dd:contenttype="MEDICATIONS">diphtheria/pertussis,acel/tetanus/polio, 10 mg =, Buccal, 2-4x/Day, Start Date/Time: 09/11/18 8:00:00 CDT</div>
+                  </div>
+              </div>
+              <div style="clear:both"><span> &#160;</span></div>
+          </div>
+          <div xmlns:dd="DynamicDocumentation" class="ddemrcontentitem ddremovable" style="clear:both" dd:entityid="28495821" dd:contenttype="DIAGNOSES">4.&#160;Pain and other conditions associated with female genital organs and menstrual cycle
+              <div style="margin-left:8px" class="ddfreetext ddremovable" dd:btnfloatingstyle="top-right">Dummy DATA</div>
+              <div>
+                  <div style="display:table-cell;*float:left;padding-left:8px;padding-right:10px">Ordered: </div>
+                  <div style="display:table-cell;*float:left">
+                      <div class="ddemrcontentitem ddremovable" dd:entityid="2171389947" dd:contenttype="MEDICATIONS">acetaminophen, 890 mg, Aerosol, Oral, q4-6hr, Start Date/Time: 09/12/18, Future Order, 09/12/18 1:00:00 CDT</div>
+                  </div>
+              </div>
+              <div style="clear:both"><span> &#160;</span></div>
+          </div>
+      </div>
+  </div>`),
+      emrData: new Map()
+    };
+
+    this.getEmrFromTemplate(currentTemplate);
+    this.getEmrFromTemplate(futureTemplate);
+
+    let stopSwitch = false;
+    let shouldCompare = false;
+
+    for (let emrData of currentTemplate.emrData.values()) {
+      if (emrData.freeTextData !== 'NO_FREE_TEXT' && emrData.freeTextData !== 'NO_DATA') {
+        shouldCompare = true;
+        break;
+      }
+    }
+
+    if (shouldCompare) {
+      let upadatedFutureHtml = this.stringToHTML(futureTemplate.htmlContent);
+
+      const emrContentItems = upadatedFutureHtml.getElementsByClassName('ddemrcontentitem ddremovable');
+      
+      const emrContents = this.getEmrContents(emrContentItems);
+
+      for (let emr of currentTemplate.emrData.keys()) {
+        if (emr !== 'Generic Free Text' && futureTemplate.emrData.has(emr) ){
+          if ( currentTemplate.emrData.get(emr).freeTextData !== 'NO_FREE_TEXT' && currentTemplate.emrData.get(emr).freeTextData !== 'NO_DATA') {
+            // If EMR doesn't have free text box, copy forward the current template's free text/outerHTML
+            if (futureTemplate.emrData.get(emr).freeTextData === 'NO_FREE_TEXT') {
+              emrContents.forEach(emrContent => {
+                  if (emrContent.childNodes[0].wholeText.trim() === emr.trim()) {
+                    let htmlContent = this.stringToHTML(currentTemplate.emrData.get(emr).freeTextOuterHTML);
+                    emrContent.insertBefore(htmlContent.getElementsByTagName('div')[0], emrContent.firstElementChild);
+                  }
+                });
+            } else { // If EMR has the free text box, copy forward current template's free text data/innerHTML
+              emrContents.forEach(emrContent => {
+                if (emrContent.childNodes[0].wholeText.trim() === emr.trim()) {
+                  emrContent.firstElementChild.innerHTML = currentTemplate.emrData.get(emr).freeTextInnerHTML;
+                }
+              });
+            }
+          }
+        } else if (emr !== 'Generic Free Text' && !futureTemplate.emrData.has(emr)) {
+          if ( currentTemplate.emrData.get(emr).freeTextData !== 'NO_FREE_TEXT' && currentTemplate.emrData.get(emr).freeTextData !== 'NO_DATA') {
+            stopSwitch = true;
+          }
+        } else if (emr === 'Generic Free Text' && currentTemplate.emrData.get(emr).freeTextData !== 'NO_FREE_TEXT' && currentTemplate.emrData.get(emr).freeTextData !== 'NO_DATA') {
+          if (futureTemplate.emrData.get(emr).freeTextData === 'NO_FREE_TEXT') {
+            // Place at beginning in future template
+            if (currentTemplate.emrData.get(emr).freeTextIndex === 0) {
+              const htmlContent = this.stringToHTML(currentTemplate.emrData.get(emr).freeTextOuterHTML);
+              const parentDiv = upadatedFutureHtml.getElementsByClassName('doc-WorkflowComponent-content doc-DynamicDocument-content')[0]
+              parentDiv.insertBefore(htmlContent.getElementsByTagName('div')[0], parentDiv.firstElementChild);
+            } else {
+              // Place at the end in future template
+              const htmlContent = this.stringToHTML(currentTemplate.emrData.get(emr).freeTextOuterHTML);
+              const parentDiv = upadatedFutureHtml.getElementsByClassName('doc-WorkflowComponent-content doc-DynamicDocument-content')[0]
+              parentDiv.insertBefore(htmlContent.getElementsByTagName('div')[0], null);
+            }
+          } else {
+            const genricFreeText = this.getGenericFreeTextElement(upadatedFutureHtml);
+            genricFreeText.element.innerHTML = currentTemplate.emrData.get(emr).freeTextInnerHTML;
+          }
+        } 
+      }
+
+      // Converting DOM to string and removing the <body> tag added by XMLSerializer during converstion
+      let oSerializer = new XMLSerializer();
+      upadatedFutureHtml = oSerializer.serializeToString(upadatedFutureHtml)
+        .replace(/<body[^>]+\?>/i, '').replace(/<\/body>/i, '').replace(/<[//]{0,1}(BODY|body)[^><]*>/g, "");
+
+      if (stopSwitch) {
+        const notificationDialogProps = {
+          header: this.props.intl.formatMessage({ id: 'workflow-component.ap.header_dirty_data_context_change_or_exit' }),
+          title:  this.props.intl.formatMessage({ id: 'workflow-component.ap.title_dirty_data_context_change_or_exit' }),
+          startMessage: this.props.intl.formatMessage({ id: 'workflow-component.ap.message_dirty_data_context_change_or_exit' }),
+          acceptText: this.props.intl.formatMessage({ id: 'workflow-component.ap_accept_action_text_dirty_data_context_change_or_exit' }),
+          acceptHandler: () => {
+            this.setState({
+              notificationDialog: null,
+              resetUndoRedo: true,
+              seletedTemplate: selectedTemplateID,
+              myHtmlContent: upadatedFutureHtml
+            });
+          },
+          rejectText: this.props.intl.formatMessage({ id: 'workflow-component.ap_reject_action_text_dirty_data_context_change_or_exit' }),
+          rejectHandler: () => {
+            this.setState({
+              notificationDialog: null
+            })
+          }
+        };
+        this.showNotificationDialog(notificationDialogProps);
+      } else {
+        this.setState({
+          resetUndoRedo: true,
+          seletedTemplate: selectedTemplateID,
+          myHtmlContent: upadatedFutureHtml
+        });
+      }
+    } else {
+      this.setState({
+        resetUndoRedo: true,
+        seletedTemplate: selectedTemplateID,
+        myHtmlContent: futureTemplate.htmlContent
+      });
+    }
   }
